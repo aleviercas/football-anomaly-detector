@@ -170,7 +170,7 @@ class AdvancedAnomalyDetector:
                 
                 # Modelo Poisson para eficiencia esperada
                 expected_efficiency = 0.32  # Promedio hist�rico
-                poisson_prob = poisson.pmf(goals, shots * expected_efficiency)
+                poisson_prob = self._poisson_pmf(goals, shots * expected_efficiency)
                 
                 if efficiency > 0.6:
                     relationship_anomalies.append({
@@ -507,7 +507,16 @@ class AdvancedAnomalyDetector:
         }
 
     @staticmethod
+    def _normal_cdf(x):
+        return 0.5 * (1 + math.erf(x / math.sqrt(2)))
+
+    @staticmethod
     def _poisson_pmf(k, lam):
         if lam <= 0:
             return 1.0 if k == 0 else 0.0
-        return math.exp(-lam) * (lam ** k) / math.factorial(k)
+        if k < 0:
+            return 0.0
+        try:
+            return math.exp(-lam) * (lam ** k) / math.factorial(int(k))
+        except TypeError:
+            return math.exp(-lam) * (lam ** k) / math.gamma(k + 1)

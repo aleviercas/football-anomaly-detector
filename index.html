@@ -6,15 +6,72 @@
     <title>Football Anomaly Detector</title>
     <style>
       body { font-family: Arial, sans-serif; margin: 0; padding: 2rem; background: #0f172a; color: #f8fafc; }
-      .card { max-width: 700px; margin: 0 auto; background: #111827; padding: 2rem; border-radius: 12px; }
+      .card { max-width: 900px; margin: 0 auto; background: #111827; padding: 2rem; border-radius: 12px; }
+      form { display: grid; gap: 0.75rem; }
+      input, select, button { padding: 0.7rem; border-radius: 8px; border: 1px solid #334155; background: #020617; color: white; }
+      button { cursor: pointer; background: #2563eb; border: none; }
+      pre { background: #020617; padding: 1rem; border-radius: 8px; overflow: auto; white-space: pre-wrap; }
+      .summary { margin-top: 1rem; padding: 1rem; border-radius: 8px; background: #1f2937; }
+      .badge { display: inline-block; padding: 0.3rem 0.6rem; border-radius: 999px; margin-top: 0.5rem; font-weight: bold; }
       a { color: #38bdf8; }
     </style>
   </head>
   <body>
     <div class="card">
       <h1>Football Anomaly Detector</h1>
-      <p>La API está disponible en <a href="/api/health">/api/health</a>.</p>
-      <p>El despliegue ya está funcionando correctamente.</p>
+      <p>Esta es una mini web para probar la API de detección de anomalías en partidos.</p>
+      <form id="analyze-form">
+        <input id="match_name" type="text" placeholder="Ej: Barcelona vs Real Madrid, Champions League" />
+        <select id="competition">
+          <option value="premier_league">Premier League</option>
+          <option value="champions_league">Champions League</option>
+          <option value="copa_america">Copa América</option>
+          <option value="libertadores">Copa Libertadores</option>
+          <option value="mundial">Mundial</option>
+          <option value="serie_a">Serie A</option>
+          <option value="liga_espanola">Liga Española</option>
+          <option value="liga_argentina">Liga Argentina</option>
+        </select>
+        <button type="submit">Analizar partido</button>
+      </form>
+      <h2>Resultado</h2>
+      <div id="summary" class="summary">Pulsa analizar para ver la respuesta del análisis.</div>
+      <pre id="result">Pulsa analizar para ver la respuesta de la API.</pre>
     </div>
+    <script>
+      document.getElementById('analyze-form').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const payload = {
+          match_name: document.getElementById('match_name').value,
+          competition: document.getElementById('competition').value,
+          league: document.getElementById('competition').value
+        };
+
+        const resultBox = document.getElementById('result');
+        const summaryBox = document.getElementById('summary');
+        resultBox.textContent = 'Analizando...';
+        summaryBox.innerHTML = 'Analizando...';
+
+        try {
+          const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await response.json();
+          const analysis = data?.data || {};
+
+          summaryBox.innerHTML = `
+            <strong>Probabilidad de amaño:</strong> ${analysis.probability ?? 'N/A'}%<br>
+            <strong>Nivel de riesgo:</strong> ${analysis.risk_level ?? 'N/A'}<br>
+            <strong>Recomendación:</strong> ${analysis.recommendation ?? 'N/A'}
+          `;
+          resultBox.textContent = JSON.stringify(data, null, 2);
+        } catch (error) {
+          summaryBox.innerHTML = '<strong>Error:</strong> ' + error.message;
+          resultBox.textContent = 'Error: ' + error.message;
+        }
+      });
+    </script>
   </body>
 </html>

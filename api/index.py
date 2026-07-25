@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 import sys
 import os
@@ -100,7 +100,7 @@ def get_leagues():
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
-    """Health check con informaci�n del sistema"""
+    """Health check con información del sistema"""
     return jsonify({
         'status': 'healthy',
         'version': '2.0.0',
@@ -113,6 +113,22 @@ def health_check():
             'Bayesian Probability'
         ]
     })
+
+@app.route('/', methods=['GET'])
+def index_page():
+    """Sirve la página principal en la raíz del proyecto."""
+    html_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'index.html')
+    if os.path.exists(html_path):
+        with open(html_path, 'r', encoding='utf-8') as f:
+            return Response(f.read(), mimetype='text/html')
+    return Response('<h1>Football Anomaly Detector</h1>', mimetype='text/html')
+
+@app.route('/<path:path>', methods=['GET'])
+def catch_all(path):
+    """Sirve la página principal para rutas no API."""
+    if path.startswith('api/'):
+        return jsonify({'error': 'Not found'}), 404
+    return index_page()
 
 @app.route('/api/sample-data', methods=['GET'])
 def get_sample_data():

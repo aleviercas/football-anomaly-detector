@@ -10,9 +10,9 @@ import { listProviders, searchMatches, analyzeMatch } from "@/lib/matches.functi
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Football Anomaly — análisis de amaños en partidos" },
+      { title: "Football Intel — Detector de Anomalías en partidos" },
       { name: "description", content: "Detecta anomalías estadísticas en partidos de fútbol pasados usando 9 algoritmos: Isolation Forest, LOF, análisis bayesiano, Ley de Benford, patrones de amaño, temporal y más." },
-      { property: "og:title", content: "Football Anomaly" },
+      { property: "og:title", content: "Football Intel" },
       { property: "og:description", content: "Análisis multi-algoritmo de partidos de fútbol para detectar anomalías y posibles amaños." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -77,6 +77,11 @@ function IndexPage() {
         </form>
 
         {/* Provider status */}
+        {providersQ.isError && (
+          <div className="mt-4 text-xs text-red-400">
+            No se pudo consultar el estado de los proveedores de datos.
+          </div>
+        )}
         {providersQ.data && (
           <div className="mt-4 flex flex-wrap gap-2 text-xs">
             {providersQ.data.enabled.length === 0 && (
@@ -99,6 +104,20 @@ function IndexPage() {
       </section>
 
       {/* Results */}
+      {searchM.isError && (
+        <section className="pt-4 pb-2">
+          <div className="text-sm text-red-400">
+            No se pudo completar la búsqueda ({searchM.error instanceof Error ? searchM.error.message : "error desconocido"}). Probá de nuevo en unos segundos.
+          </div>
+        </section>
+      )}
+      {analyzeM.isError && (
+        <section className="pt-2 pb-2">
+          <div className="text-sm text-red-400">
+            No se pudo analizar el partido ({analyzeM.error instanceof Error ? analyzeM.error.message : "error desconocido"}).
+          </div>
+        </section>
+      )}
       {searchM.data && (
         <section className="pt-4 pb-8">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">

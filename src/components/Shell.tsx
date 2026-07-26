@@ -12,8 +12,8 @@ export function Shell({ children, title, subtitle }: { children: ReactNode; titl
               <Activity className="h-5 w-5 text-black" />
             </div>
             <div>
-              <div className="text-sm font-semibold tracking-tight">Football Anomaly Detector</div>
-              <div className="text-[11px] text-muted-foreground -mt-0.5">Análisis estadístico de partidos</div>
+              <div className="text-sm font-semibold tracking-tight">Football Intel</div>
+              <div className="text-[11px] text-muted-foreground -mt-0.5">Módulo: Detector de Anomalías</div>
             </div>
           </Link>
           <nav className="flex items-center gap-1 text-sm">

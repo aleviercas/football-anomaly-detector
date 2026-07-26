@@ -8,6 +8,7 @@ import { patternsDetector } from "./patterns";
 import { temporalDetector } from "./temporal";
 import { oddsMovementDetector } from "./oddsMovement";
 import { mlHistoricalDetector } from "./mlHistorical";
+import { benfordDetector } from "./benford";
 
 export type EnsembleOptions = {
   baselineSize?: number;
@@ -28,6 +29,7 @@ export function runAnalysis(match: MatchData, opts: EnsembleOptions = {}): Analy
     temporalDetector(match),
     oddsMovementDetector(match),
     mlHistoricalDetector(match),
+    benfordDetector(match),
   ];
 
   // Weighted score
@@ -103,6 +105,7 @@ export const DETECTOR_LABELS: Record<string, string> = {
   temporal: "Análisis temporal",
   odds_movement: "Movimiento de cuotas",
   ml_historical: "Modelo histórico (ML)",
+  benford: "Ley de Benford (integridad de datos)",
 };
 
 export const VERDICT_LABELS: Record<Verdict, { label: string; color: string; description: string }> = {

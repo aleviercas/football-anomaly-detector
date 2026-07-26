@@ -78,7 +78,8 @@ export type DetectorId =
   | "patterns"
   | "temporal"
   | "odds_movement"
-  | "ml_historical";
+  | "ml_historical"
+  | "benford";
 
 export type DetectorResult = {
   detector: DetectorId;

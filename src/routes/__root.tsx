@@ -77,11 +77,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Football Anomaly Detector" },
-      { name: "description", content: "Detecta anomalías estadísticas en partidos de fútbol pasados con Isolation Forest, LOF, análisis bayesiano y patrones conocidos de amaño." },
-      { name: "author", content: "Football Anomaly Detector" },
-      { property: "og:title", content: "Football Anomaly Detector" },
-      { property: "og:description", content: "Análisis multi-algoritmo de partidos de fútbol para detectar anomalías y posibles amaños." },
+      { title: "Football Anomaly" },
+      { name: "description", content: "Detecta anomalías y posibles amaños en partidos de fútbol ya jugados, combinando estadística clásica (Z-score, IQR, Ley de Benford), Isolation Forest, LOF, análisis bayesiano, patrones de amaño conocidos y movimiento de cuotas — con datos automáticos desde múltiples fuentes." },
+      { name: "author", content: "Football Anomaly" },
+      { name: "theme-color", content: "#0f172a" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "Football Anomaly" },
+      { property: "og:title", content: "Football Anomaly" },
+      { property: "og:description", content: "Análisis multi-algoritmo y multi-fuente de partidos de fútbol para detectar anomalías y posibles amaños." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -91,6 +95,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: appCss,
       },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icons/icon-192.png" },
     ],
   }),
   shellComponent: RootShell,
@@ -115,6 +121,12 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

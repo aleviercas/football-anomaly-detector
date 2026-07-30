@@ -10,8 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as ModulesRouteImport } from './routes/modules'
+import { Route as AnomalyDetectorRouteImport } from './routes/anomaly-detector'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as ApiLatestAnalysisRouteImport } from './routes/api/latest-analysis'
 import { Route as MatchIdRouteImport } from './routes/match.$id'
 
@@ -20,14 +20,14 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AnomalyDetectorRoute = AnomalyDetectorRouteImport.update({
+  id: '/anomaly-detector',
+  path: '/anomaly-detector',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ModulesRoute = ModulesRouteImport.update({
-  id: '/modules',
-  path: '/modules',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLatestAnalysisRoute = ApiLatestAnalysisRouteImport.update({
@@ -43,45 +43,46 @@ const MatchIdRoute = MatchIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/modules': typeof ModulesRoute
+  '/anomaly-detector': typeof AnomalyDetectorRoute
+  '/login': typeof LoginRoute
   '/api/latest-analysis': typeof ApiLatestAnalysisRoute
   '/match/$id': typeof MatchIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/modules': typeof ModulesRoute
+  '/anomaly-detector': typeof AnomalyDetectorRoute
+  '/login': typeof LoginRoute
   '/api/latest-analysis': typeof ApiLatestAnalysisRoute
   '/match/$id': typeof MatchIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/modules': typeof ModulesRoute
+  '/anomaly-detector': typeof AnomalyDetectorRoute
+  '/login': typeof LoginRoute
   '/api/latest-analysis': typeof ApiLatestAnalysisRoute
   '/match/$id': typeof MatchIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/dashboard' | '/modules' | '/api/latest-analysis' | '/match/$id'
+    '/' | '/anomaly-detector' | '/login' | '/api/latest-analysis' | '/match/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/modules' | '/api/latest-analysis' | '/match/$id'
+  to:
+    '/' | '/anomaly-detector' | '/login' | '/api/latest-analysis' | '/match/$id'
   id:
     | '__root__'
     | '/'
-    | '/dashboard'
-    | '/modules'
+    | '/anomaly-detector'
+    | '/login'
     | '/api/latest-analysis'
     | '/match/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DashboardRoute: typeof DashboardRoute
-  ModulesRoute: typeof ModulesRoute
+  AnomalyDetectorRoute: typeof AnomalyDetectorRoute
+  LoginRoute: typeof LoginRoute
   ApiLatestAnalysisRoute: typeof ApiLatestAnalysisRoute
   MatchIdRoute: typeof MatchIdRoute
 }
@@ -95,18 +96,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+    '/anomaly-detector': {
+      id: '/anomaly-detector'
+      path: '/anomaly-detector'
+      fullPath: '/anomaly-detector'
+      preLoaderRoute: typeof AnomalyDetectorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/modules': {
-      id: '/modules'
-      path: '/modules'
-      fullPath: '/modules'
-      preLoaderRoute: typeof ModulesRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/latest-analysis': {
@@ -128,8 +129,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DashboardRoute: DashboardRoute,
-  ModulesRoute: ModulesRoute,
+  AnomalyDetectorRoute: AnomalyDetectorRoute,
+  LoginRoute: LoginRoute,
   ApiLatestAnalysisRoute: ApiLatestAnalysisRoute,
   MatchIdRoute: MatchIdRoute,
 }

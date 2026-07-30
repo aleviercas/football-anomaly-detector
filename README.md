@@ -1,12 +1,11 @@
 # SmartFootball
 
-**SmartFootball** es una plataforma de inteligencia de fútbol, pensada para
-venderse por suscripción a **fanáticos** y a **clubes**. Está construida
-por módulos sobre una misma base de datos de partidos, equipos y
-jugadores. Podés ver el roadmap completo (activo + planeado) en
-`/modules` dentro de la propia app.
+**Football, made smart.** SmartFootball es una plataforma de inteligencia
+de fútbol por módulos, pensada para venderse por suscripción a
+**fanáticos** y a **clubes/confederaciones**. El home (`/`) es el hub de
+módulos; cada módulo activo vive en su propia ruta.
 
-## Módulo activo: Detector de Anomalías
+## Módulo activo: Detector de Anomalías (`/anomaly-detector`)
 
 Detecta posibles amaños/anomalías en partidos **ya jugados**, combinando:
 
@@ -16,9 +15,56 @@ Detecta posibles amaños/anomalías en partidos **ya jugados**, combinando:
   Isolation Forest, LOF, Bayesiano, Ley de Benford, patrones de amaño
   conocidos, análisis temporal, movimiento de cuotas y modelo histórico.
 
-Funciona **con o sin Supabase configurado**: si no hay credenciales de
-Supabase, analiza igual (sin guardar historial); si las agregás, además
-persiste cada partido/análisis para el Dashboard.
+Requiere estar logueado (los análisis quedan asociados a tu cuenta, para
+poder volver a consultarlos en la misma página — no hay un dashboard
+separado).
+
+## Cuentas de usuario
+
+Login/registro con email y contraseña (`/login`), vía Supabase Auth. Cada
+usuario ve solo su propio historial de análisis (tabla `user_analyses`);
+la caché de partidos/análisis en sí es compartida entre cuentas, para no
+volver a pedirle los mismos datos a las APIs externas.
+
+## Configuración (variables de entorno)
+
+```
+API_FOOTBALL_KEY=tu_key_de_api-football.com
+FOOTBALL_DATA_TOKEN=tu_token_de_football-data.org
+
+# Supabase — server-side (persistencia + auth)
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
+SUPABASE_PUBLISHABLE_KEY=tu_anon_o_publishable_key
+
+# Supabase — mismas credenciales, pero expuestas al navegador (login/signup).
+# OJO: Vite solo inyecta variables VITE_* en el bundle del cliente, así que
+# estas dos son imprescindibles para que el login funcione.
+VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=tu_anon_o_publishable_key
+```
+
+En Vercel: Project Settings → Environment Variables. Después de agregarlas,
+volvé a desplegar (un simple "Redeploy" alcanza).
+
+### Cómo agregar/actualizar Supabase
+
+1. Creá un proyecto gratis en [supabase.com](https://supabase.com) (si no
+   lo hiciste ya).
+2. En el SQL Editor, corré, en este orden:
+   - `supabase/migrations/20260726190707_fa47131b-4db9-45e1-bddc-0eef58cd120d.sql`
+     (tablas `matches`, `analyses`, `detector_scores`, etc.)
+   - `supabase/migrations/20260731120000_user_analyses.sql`
+     (tabla `user_analyses`, para el historial por cuenta)
+3. En Project Settings → API, copiá la `Project URL` y las keys
+   `anon`/`publishable` y `service_role`.
+4. Cargalas en Vercel como se detalla arriba.
+5. (Opcional para probar rápido) En Authentication → Providers → Email,
+   podés desactivar "Confirm email" para no tener que configurar SMTP
+   mientras testeás — en producción real conviene dejarlo activado.
+
+> Regenerá cualquier key/token que se haya compartido fuera de un entorno
+> seguro (chat, captura de pantalla, etc.) antes de usarla en producción.
 
 ## Roadmap de módulos (para clubes y fanáticos)
 
@@ -37,32 +83,9 @@ persiste cada partido/análisis para el Dashboard.
 | Alertas de Cuotas en Vivo | Ambos | Movimientos anómalos de cuotas en tiempo real |
 | Panel de Riesgo Reputacional | Clubes | Monitoreo de menciones de amaño/controversia |
 
-## Configuración (variables de entorno)
-
-```
-API_FOOTBALL_KEY=tu_key_de_api-football.com
-FOOTBALL_DATA_TOKEN=tu_token_de_football-data.org
-
-# Opcional pero recomendado (habilita historial/Dashboard):
-SUPABASE_URL=https://tu-proyecto.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
-```
-
-En Vercel: Project Settings → Environment Variables.
-
-### Cómo agregar Supabase (para que el Dashboard guarde historial)
-
-1. Creá un proyecto gratis en [supabase.com](https://supabase.com).
-2. En el SQL Editor, corré el contenido de
-   `supabase/migrations/20260726190707_fa47131b-4db9-45e1-bddc-0eef58cd120d.sql`
-   (crea las tablas `matches`, `analyses`, `detector_scores`).
-3. En Project Settings → API, copiá la `Project URL` y la
-   `service_role` key.
-4. Cargalas en Vercel como `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`, y
-   volvé a desplegar.
-
-> Regenerá cualquier key/token que se haya compartido fuera de un entorno
-> seguro (chat, captura de pantalla, etc.) antes de usarla en producción.
+El código de este listado vive en `src/lib/modules.ts` (se renderiza en el
+home) y en `MODULES` — agregar un módulo nuevo es agregar una entrada ahí
+más su ruta.
 
 ## Desarrollo local
 
@@ -92,7 +115,7 @@ pasar por App Store / Google Play.
 ## Stack
 
 - TanStack Start · React 19 · TypeScript · Tailwind CSS · shadcn/ui
-- Supabase (opcional — persistencia de partidos y análisis)
+- Supabase (auth + persistencia de partidos/análisis)
 - Nitro (preset `vercel`) para el build de producción
 
 ## Histórico

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { chainDetail, chainSearch, availableProviders } from "./providers/chain";
 import { runAnalysis } from "./detection/ensemble";
 import type { MatchData } from "./detection/types";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const SearchInput = z.object({
   text: z.string().optional(),
@@ -19,6 +20,7 @@ export const listProviders = createServerFn({ method: "GET" }).handler(async () 
 });
 
 export const searchMatches = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((raw: unknown) => SearchInput.parse(raw))
   .handler(async ({ data }) => {
     try {
@@ -38,10 +40,12 @@ const AnalyzeInput = z.object({
 });
 
 export const analyzeMatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((raw: unknown) => AnalyzeInput.parse(raw))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { supabaseAdmin, isSupabaseConfigured } = await import("@/integrations/supabase/client.server");
     const dbAvailable = isSupabaseConfigured();
+    const userId = context.userId as string;
 
     try {
       // 1) Try cache first (only if Supabase is set up)
@@ -137,6 +141,9 @@ export const analyzeMatch = createServerFn({ method: "POST" })
                 reasons: d.reasons as never,
               })),
             );
+            await supabaseAdmin
+              .from("user_analyses")
+              .upsert({ user_id: userId, analysis_id: persisted.data.id }, { onConflict: "user_id,analysis_id" });
           }
         } catch (persistErr) {
           console.error("[analyzeMatch] persist analysis (continuing)", persistErr);
@@ -177,25 +184,33 @@ function rowToMatchData(matchRow: Record<string, unknown>): MatchData {
   };
 }
 
-export const listRecentAnalyses = createServerFn({ method: "GET" }).handler(async () => {
-  const { supabaseAdmin, isSupabaseConfigured } = await import("@/integrations/supabase/client.server");
-  if (!isSupabaseConfigured()) return { results: [] as RecentAnalysis[], dbConfigured: false };
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("analyses")
-      .select("id, overall_score, verdict, confidence, created_at, match_id, matches(home_team, away_team, league, match_date, home_score, away_score)")
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (error) {
-      console.error("[listRecentAnalyses]", error);
+export const listRecentAnalyses = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin, isSupabaseConfigured } = await import("@/integrations/supabase/client.server");
+    if (!isSupabaseConfigured()) return { results: [] as RecentAnalysis[], dbConfigured: false };
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("user_analyses")
+        .select(
+          "created_at, analyses(id, overall_score, verdict, confidence, created_at, match_id, matches(home_team, away_team, league, match_date, home_score, away_score))",
+        )
+        .eq("user_id", context.userId as string)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) {
+        console.error("[listRecentAnalyses]", error);
+        return { results: [] as RecentAnalysis[], dbConfigured: true };
+      }
+      const results = (data ?? [])
+        .map((row) => (row as unknown as { analyses: RecentAnalysis | null }).analyses)
+        .filter((a): a is RecentAnalysis => Boolean(a));
+      return { results, dbConfigured: true };
+    } catch (err) {
+      console.error("[listRecentAnalyses]", err);
       return { results: [] as RecentAnalysis[], dbConfigured: true };
     }
-    return { results: (data ?? []) as unknown as RecentAnalysis[], dbConfigured: true };
-  } catch (err) {
-    console.error("[listRecentAnalyses]", err);
-    return { results: [] as RecentAnalysis[], dbConfigured: true };
-  }
-});
+  });
 
 export type RecentAnalysis = {
   id: string;
@@ -217,6 +232,7 @@ export type RecentAnalysis = {
 const GetAnalysisInput = z.object({ id: z.string() });
 
 export const getAnalysis = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((raw: unknown) => GetAnalysisInput.parse(raw))
   .handler(async ({ data }) => {
     const { supabaseAdmin, isSupabaseConfigured } = await import("@/integrations/supabase/client.server");

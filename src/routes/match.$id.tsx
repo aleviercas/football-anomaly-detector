@@ -59,7 +59,7 @@ function MatchPage() {
   return (
     <Shell>
       <div className="pt-8">
-        <Link to="/dashboard" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" /> Dashboard</Link>
+        <Link to="/anomaly-detector" className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"><ArrowLeft className="h-3 w-3" /> Detector de Anomalías</Link>
         <div className="mt-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
             {m?.home_team} <span className="text-muted-foreground text-xl">vs</span> {m?.away_team}

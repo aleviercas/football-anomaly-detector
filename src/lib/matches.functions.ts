@@ -8,6 +8,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const SearchInput = z.object({
   text: z.string().optional(),
+  competition: z.string().optional(),
+  season: z.string().optional(),
   from: z.string().optional(),
   to: z.string().optional(),
 });
@@ -126,6 +128,7 @@ export const analyzeMatch = createServerFn({ method: "POST" })
               confidence: analysis.confidence,
               evidences: analysis.evidences as never,
               data_completeness: analysis.dataCompleteness,
+              completeness_breakdown: analysis.completenessBreakdown as never,
               providers_used: [match.provider],
             })
             .select("id")

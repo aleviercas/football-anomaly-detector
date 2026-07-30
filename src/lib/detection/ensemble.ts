@@ -1,4 +1,4 @@
-import type { AnalysisResult, DetectorResult, Evidence, MatchData, Verdict } from "./types";
+import type { AnalysisResult, CompletenessItem, DetectorResult, Evidence, MatchData, Verdict } from "./types";
 import { generateBaseline } from "./baseline";
 import { statisticalDetector } from "./statistical";
 import { isolationForestDetector } from "./isolationForest";
@@ -47,7 +47,7 @@ export function runAnalysis(match: MatchData, opts: EnsembleOptions = {}): Analy
   // Dampen when only 1 detector fires (single-signal is weak evidence)
   if (firing <= 1) overall = overall * 0.7;
 
-  const dataCompleteness = computeCompleteness(match);
+  const { score: dataCompleteness, breakdown: completenessBreakdown } = computeCompleteness(match);
   // Confidence: bigger with more data + more agreement
   const agreement = 1 - variance(detectors.map((d) => d.score));
   const confidence = clamp01(dataCompleteness * 0.6 + agreement * 0.4);
@@ -70,22 +70,29 @@ export function runAnalysis(match: MatchData, opts: EnsembleOptions = {}): Analy
     perDetector: detectors,
     evidences,
     dataCompleteness,
+    completenessBreakdown,
   };
 }
 
-function computeCompleteness(m: MatchData): number {
-  let filled = 0, total = 0;
-  const check = (v: unknown) => { total++; if (v != null && v !== "" && !(Array.isArray(v) && v.length === 0)) filled++; };
-  check(m.homeScore); check(m.awayScore);
-  check(m.htHomeScore); check(m.htAwayScore);
-  check(m.stats.home?.shots); check(m.stats.away?.shots);
-  check(m.stats.home?.shots_on_target); check(m.stats.away?.shots_on_target);
-  check(m.stats.home?.possession);
-  check(m.stats.home?.xg);
-  check(m.events);
-  check(m.odds?.home_open); check(m.odds?.home_close);
-  check(m.odds?.over_open); check(m.odds?.over_close);
-  return total ? filled / total : 0;
+function computeCompleteness(m: MatchData): { score: number; breakdown: CompletenessItem[] } {
+  const items: CompletenessItem[] = [
+    { key: "score", label: "Resultado final", present: has(m.homeScore) && has(m.awayScore) },
+    { key: "ht_score", label: "Resultado al entretiempo", present: has(m.htHomeScore) && has(m.htAwayScore) },
+    { key: "shots", label: "Remates (ambos equipos)", present: has(m.stats.home?.shots) && has(m.stats.away?.shots) },
+    { key: "shots_on_target", label: "Remates al arco", present: has(m.stats.home?.shots_on_target) && has(m.stats.away?.shots_on_target) },
+    { key: "possession", label: "Posesión", present: has(m.stats.home?.possession) },
+    { key: "xg", label: "Goles esperados (xG)", present: has(m.stats.home?.xg) },
+    { key: "events", label: "Eventos del partido (goles, tarjetas, cambios)", present: m.events.length > 0 },
+    { key: "odds_pre", label: "Cuotas antes del partido", present: has(m.odds?.home_open) },
+    { key: "odds_close", label: "Cuotas al cierre / en vivo", present: has(m.odds?.home_close) },
+    { key: "odds_ou", label: "Cuotas over/under de goles", present: has(m.odds?.over_open) && has(m.odds?.over_close) },
+  ];
+  const filled = items.filter((i) => i.present).length;
+  return { score: items.length ? filled / items.length : 0, breakdown: items };
+}
+
+function has(v: unknown): boolean {
+  return v != null && v !== "" && !(Array.isArray(v) && v.length === 0);
 }
 
 function variance(arr: number[]) {
@@ -107,6 +114,56 @@ export const DETECTOR_LABELS: Record<string, string> = {
   ml_historical: "Modelo histórico (ML)",
   benford: "Ley de Benford (integridad de datos)",
 };
+
+export const DETECTOR_DESCRIPTIONS: Record<string, { what: string; variables: string }> = {
+  statistical: {
+    what: "Calcula cuántos desvíos estándar (Z-score) se aleja cada estadística del partido respecto al promedio histórico de partidos similares. Un valor muy alto o muy bajo en varias variables a la vez sube el score.",
+    variables: "Remates, remates al arco, posesión, córners, faltas, tarjetas, goles totales.",
+  },
+  isolation_forest: {
+    what: "Algoritmo de Machine Learning que aísla el partido en un 'árbol' de decisiones aleatorias sobre todas sus variables a la vez. Partidos raros se aíslan con menos particiones que uno normal — eso sube el score.",
+    variables: "Vector completo de estadísticas del partido (remates, posesión, tarjetas, goles, xG, córners).",
+  },
+  lof: {
+    what: "Local Outlier Factor: compara la densidad de partidos 'vecinos' (estadísticamente parecidos) contra la densidad general. Si el partido está en una zona rara del espacio estadístico, sube el score.",
+    variables: "Mismo vector de estadísticas que Isolation Forest, pero mirando densidad local en vez de aislamiento global.",
+  },
+  bayesian: {
+    what: "Estima la probabilidad de que el resultado sea 'orgánico' dado el marcador, el momento de los goles y la diferencia de nivel entre los equipos, usando probabilidad condicional (teorema de Bayes).",
+    variables: "Marcador final, minuto de cada gol, favoritismo pre-partido (si hay cuotas).",
+  },
+  patterns: {
+    what: "Reglas explícitas basadas en patrones documentados de amaños reales: remontadas inusuales en pocos minutos, penales/tarjetas en momentos sospechosos, resultados exactos que benefician mercados de apuestas comunes (ej. 2-1, over/under).",
+    variables: "Secuencia de eventos (goles, tarjetas, penales) con su minuto exacto.",
+  },
+  temporal: {
+    what: "Analiza la distribución de los eventos a lo largo de los 90 minutos: si todos los goles/tarjetas relevantes se concentran de forma anormal en un tramo muy corto del partido.",
+    variables: "Minuto de cada evento (goles, tarjetas, cambios).",
+  },
+  odds_movement: {
+    what: "Compara las cuotas de apuestas antes del partido contra las de cierre/en vivo. Movimientos bruscos sin razón deportiva aparente (lesiones, clima) son la señal más citada en casos reales de amaño.",
+    variables: "Cuotas 1X2 y over/under, apertura vs. cierre.",
+  },
+  ml_historical: {
+    what: "Modelo entrenado con partidos históricos etiquetados (limpios vs. sospechosos) que calcula qué tan parecido es el vector de este partido a los casos sospechosos conocidos.",
+    variables: "Combinación ponderada de todas las variables disponibles del partido.",
+  },
+  benford: {
+    what: "Ley de Benford: en datos numéricos genuinos, el primer dígito de cada número sigue una distribución logarítmica predecible. Una desviación fuerte (chi-cuadrado alto) sugiere que algunos datos pudieron ser fabricados o alterados manualmente.",
+    variables: "Primer dígito de todos los números del partido: goles, remates, córners, faltas, minutos de eventos, cuotas.",
+  },
+};
+
+export function explainScoreFormula() {
+  return [
+    "Cada uno de los 9 detectores da un puntaje de 0 a 1 y tiene un peso (algunos pesan más que otros según qué tan confiable es su señal).",
+    "El score general arranca como el promedio ponderado de los 9 detectores.",
+    "Si 3 o más detectores superan 0.55 a la vez, el score sube un 15% (varias señales independientes coincidiendo es más confiable que una sola).",
+    "Si 2 o más detectores superan 0.75 (señal fuerte), el score sube otro 20% adicional.",
+    "Si solo 1 detector (o ninguno) supera 0.55, el score baja un 30% — una sola señal aislada no alcanza para sospechar.",
+    "La confianza del análisis combina qué tan completos son los datos del partido (¿hay cuotas? ¿hay xG? ¿hay eventos minuto a minuto?) con qué tan de acuerdo están los detectores entre sí.",
+  ];
+}
 
 export const VERDICT_LABELS: Record<Verdict, { label: string; color: string; description: string }> = {
   clean: { label: "Sin anomalías", color: "text-emerald-500", description: "Partido dentro de patrones normales." },

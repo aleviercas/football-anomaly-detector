@@ -1,6 +1,7 @@
 import type { MatchData, MatchEvent, OddsSnapshot } from "../detection/types";
 import type { MatchDataProvider, ProviderSearchResult } from "./types";
 import { markCoolDown } from "./types";
+import { findCompetition } from "./competitions";
 
 // API-Football via RapidAPI. Free plan: 100 requests / day.
 // Docs: https://www.api-football.com/documentation-v3
@@ -17,26 +18,54 @@ export function apiFootballProvider(): MatchDataProvider {
     isAvailable: () => available,
     async searchMatches(query) {
       if (!available) return [];
-      const params = new URLSearchParams();
-      if (query.text) params.set("search", query.text);
-      if (query.from) params.set("from", query.from.slice(0, 10));
-      if (query.to) params.set("to", query.to.slice(0, 10));
-      const url = query.text
-        ? `${BASE}/teams?search=${encodeURIComponent(query.text)}`
-        : `${BASE}/fixtures?${params.toString()}`;
-      const res = await fetch(url, { headers: headers() });
-      if (res.status === 429) { markCoolDown("api-football"); return []; }
-      if (!res.ok) return [];
+      const textLower = query.text?.toLowerCase();
+      const matchesTeamText = (f: AFFixture) =>
+        !textLower ||
+        f.teams.home.name.toLowerCase().includes(textLower) ||
+        f.teams.away.name.toLowerCase().includes(textLower);
+
+      // 1) Competition-scoped search (e.g. "World Cup" + season "2022") —
+      // the reliable way to pull a whole tournament, since a team's "last N
+      // fixtures" is anchored to today and won't reach back that far.
+      const comp = findCompetition(query.competition);
+      if (comp?.afLeagueId) {
+        const season = query.season || String(new Date().getFullYear());
+        const res = await fetch(`${BASE}/fixtures?league=${comp.afLeagueId}&season=${season}`, { headers: headers() });
+        if (res.status === 429) { markCoolDown("api-football"); return []; }
+        if (!res.ok) return [];
+        const j = await res.json() as { response?: AFFixture[] };
+        return (j.response ?? []).filter(matchesTeamText).slice(0, 60).map(mapFixture);
+      }
+
+      // 2) Team-scoped search. With a season, pulls that whole season's
+      // fixtures (reaches back further than "last N"); without one, falls
+      // back to the team's most recent finished matches.
       if (query.text) {
-        // Get first team, then their recent fixtures
-        const j = await res.json() as { response?: { team?: { id: number } }[] };
-        const teamId = j.response?.[0]?.team?.id;
+        const teamRes = await fetch(`${BASE}/teams?search=${encodeURIComponent(query.text)}`, { headers: headers() });
+        if (teamRes.status === 429) { markCoolDown("api-football"); return []; }
+        if (!teamRes.ok) return [];
+        const tj = await teamRes.json() as { response?: { team?: { id: number } }[] };
+        const teamId = tj.response?.[0]?.team?.id;
         if (!teamId) return [];
-        const fx = await fetch(`${BASE}/fixtures?team=${teamId}&last=20`, { headers: headers() });
+        const fxUrl = query.season
+          ? `${BASE}/fixtures?team=${teamId}&season=${query.season}`
+          : `${BASE}/fixtures?team=${teamId}&last=50`;
+        const fx = await fetch(fxUrl, { headers: headers() });
+        if (fx.status === 429) { markCoolDown("api-football"); return []; }
         if (!fx.ok) return [];
         const fj = await fx.json() as { response?: AFFixture[] };
-        return (fj.response ?? []).map(mapFixture);
+        return (fj.response ?? []).slice(0, 50).map(mapFixture);
       }
+
+      // 3) Fallback: browse by date window (only when neither team nor
+      // competition was given).
+      const params = new URLSearchParams();
+      if (query.from) params.set("from", query.from.slice(0, 10));
+      if (query.to) params.set("to", query.to.slice(0, 10));
+      if (![...params.keys()].length) return [];
+      const res = await fetch(`${BASE}/fixtures?${params.toString()}`, { headers: headers() });
+      if (res.status === 429) { markCoolDown("api-football"); return []; }
+      if (!res.ok) return [];
       const j = await res.json() as { response?: AFFixture[] };
       return (j.response ?? []).slice(0, 30).map(mapFixture);
     },

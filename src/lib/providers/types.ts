@@ -19,6 +19,10 @@ export interface MatchDataProvider {
   searchMatches(query: {
     text?: string;
     league?: string;
+    /** Our internal competition id (see competitions.ts), e.g. "world_cup". */
+    competition?: string;
+    /** Season/year, e.g. "2022". Required by most providers for competition-scoped search. */
+    season?: string;
     from?: string; // ISO date
     to?: string;
   }): Promise<ProviderSearchResult[]>;

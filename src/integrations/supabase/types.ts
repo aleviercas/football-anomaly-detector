@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       analyses: {
         Row: {
+          completeness_breakdown: Json
           confidence: number
           created_at: string
           data_completeness: number
@@ -27,6 +28,7 @@ export type Database = {
           verdict: string
         }
         Insert: {
+          completeness_breakdown?: Json
           confidence: number
           created_at?: string
           data_completeness?: number
@@ -38,6 +40,7 @@ export type Database = {
           verdict: string
         }
         Update: {
+          completeness_breakdown?: Json
           confidence?: number
           created_at?: string
           data_completeness?: number

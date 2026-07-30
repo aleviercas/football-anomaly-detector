@@ -7,6 +7,7 @@ import { Search, Loader2, Sparkles, ShieldAlert, TrendingUp, Zap, AlertTriangle 
 import { Shell, verdictClass, verdictLabel } from "@/components/Shell";
 import { supabase } from "@/integrations/supabase/client";
 import { listProviders, searchMatches, analyzeMatch, listRecentAnalyses } from "@/lib/matches.functions";
+import { COMPETITIONS } from "@/lib/providers/competitions";
 
 export const Route = createFileRoute("/anomaly-detector")({
   head: () => ({
@@ -50,8 +51,10 @@ function AnomalyDetectorPage() {
   const recentQ = useQuery({ queryKey: ["recent-analyses"], queryFn: () => doListRecent(), enabled: !checkingSession });
 
   const [text, setText] = useState("");
+  const [competition, setCompetition] = useState("");
+  const [season, setSeason] = useState("");
   const searchM = useMutation({
-    mutationFn: (q: string) => doSearch({ data: { text: q } }),
+    mutationFn: (v: { text?: string; competition?: string; season?: string }) => doSearch({ data: v }),
     onError: (err) => { if (isAuthError(err)) navigate({ to: "/login", search: { redirect: "/anomaly-detector" } }); },
   });
   const analyzeM = useMutation({
@@ -91,26 +94,52 @@ function AnomalyDetectorPage() {
 
         {/* Search */}
         <form
-          className="mt-8 flex flex-col sm:flex-row gap-2 max-w-2xl"
-          onSubmit={(e) => { e.preventDefault(); if (text.trim()) searchM.mutate(text.trim()); }}
+          className="mt-8 max-w-2xl"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!text.trim() && !competition) return;
+            searchM.mutate({ text: text.trim() || undefined, competition: competition || undefined, season: season.trim() || undefined });
+          }}
         >
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Equipo (ej: Argentina, Real Madrid)…"
+                className="w-full pl-10 pr-4 h-12 rounded-lg bg-card border border-border focus:border-emerald-500/60 focus:outline-none transition-colors text-sm"
+              />
+            </div>
+            <select
+              value={competition}
+              onChange={(e) => setCompetition(e.target.value)}
+              className="h-12 px-3 rounded-lg bg-card border border-border focus:border-emerald-500/60 focus:outline-none text-sm sm:w-64"
+            >
+              <option value="">Cualquier competencia</option>
+              {COMPETITIONS.map((c) => (
+                <option key={c.id} value={c.id}>{c.label}</option>
+              ))}
+            </select>
             <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Buscar equipo (ej: Real Madrid, Barcelona, Liverpool)…"
-              className="w-full pl-10 pr-4 h-12 rounded-lg bg-card border border-border focus:border-emerald-500/60 focus:outline-none transition-colors text-sm"
+              value={season}
+              onChange={(e) => setSeason(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))}
+              placeholder="Año (ej: 2022)"
+              inputMode="numeric"
+              className="h-12 px-3 rounded-lg bg-card border border-border focus:border-emerald-500/60 focus:outline-none text-sm sm:w-32"
             />
+            <button
+              type="submit"
+              disabled={searchM.isPending || (!text.trim() && !competition)}
+              className="h-12 px-6 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-medium text-sm transition-colors disabled:opacity-50 flex items-center gap-2 justify-center"
+            >
+              {searchM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Buscar
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={searchM.isPending || !text.trim()}
-            className="h-12 px-6 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-medium text-sm transition-colors disabled:opacity-50 flex items-center gap-2 justify-center"
-          >
-            {searchM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            Buscar
-          </button>
+          <p className="text-xs text-muted-foreground mt-2">
+            Para torneos como el Mundial o una Copa, elegí la competencia + el año exacto (ej. Copa del Mundo + 2022) — es la forma más confiable de encontrar partidos viejos. Buscar solo por equipo trae sus partidos más recientes, no necesariamente los de hace varios años.
+          </p>
         </form>
 
         {/* Provider status */}

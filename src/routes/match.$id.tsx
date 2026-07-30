@@ -5,7 +5,7 @@ import { ArrowLeft, AlertTriangle, ShieldCheck, CircleAlert } from "lucide-react
 
 import { Shell, verdictClass, verdictLabel } from "@/components/Shell";
 import { getAnalysis } from "@/lib/matches.functions";
-import { DETECTOR_LABELS } from "@/lib/detection/ensemble";
+import { DETECTOR_LABELS, DETECTOR_DESCRIPTIONS, explainScoreFormula } from "@/lib/detection/ensemble";
 
 export const Route = createFileRoute("/match/$id")({
   head: ({ params }) => ({
@@ -116,6 +116,12 @@ function MatchPage() {
                     {reasons.map((r, i) => <li key={i}>{r}</li>)}
                   </ul>
                 )}
+                {DETECTOR_DESCRIPTIONS[d.detector] && (
+                  <div className="mt-2 pt-2 border-t border-border/60 text-[11px] text-muted-foreground/80 space-y-1">
+                    <p>{DETECTOR_DESCRIPTIONS[d.detector].what}</p>
+                    <p><span className="text-muted-foreground/60">Variables: </span>{DETECTOR_DESCRIPTIONS[d.detector].variables}</p>
+                  </div>
+                )}
                 <div className="mt-1 text-[10px] text-muted-foreground/70">peso {Number(d.weight).toFixed(2)}</div>
               </div>
             );
@@ -151,6 +157,35 @@ function MatchPage() {
         )}
       </section>
 
+      {/* How the score is computed */}
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Cómo se calcula este score</h2>
+        <div className="p-4 rounded-lg border border-border bg-card/50">
+          <ol className="text-xs text-muted-foreground space-y-1.5 list-decimal list-inside">
+            {explainScoreFormula().map((line, i) => <li key={i}>{line}</li>)}
+          </ol>
+        </div>
+      </section>
+
+      {/* Variables analizadas */}
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Variables analizadas en este partido</h2>
+        <div className="grid sm:grid-cols-2 gap-2">
+          {(a.completeness_breakdown ?? []).map((item) => (
+            <div key={item.key} className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs ${
+              item.present ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-200" : "border-border bg-card text-muted-foreground"
+            }`}>
+              {item.present ? <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> : <CircleAlert className="h-3.5 w-3.5 shrink-0 opacity-50" />}
+              {item.label}
+              {!item.present && <span className="ml-auto text-[10px] opacity-60">no disponible</span>}
+            </div>
+          ))}
+          {(a.completeness_breakdown ?? []).length === 0 && (
+            <div className="text-sm text-muted-foreground">Este análisis se guardó antes de que agreguemos este detalle — volvé a analizar el partido para verlo.</div>
+          )}
+        </div>
+      </section>
+
       <p className="mt-10 text-xs text-muted-foreground max-w-2xl">
         Este análisis es probabilístico y estadístico. Un score alto indica que el partido se aleja de los patrones esperados en varias dimensiones, no una acusación de amaño. Úsalo como punto de partida para investigar.
       </p>
@@ -178,6 +213,7 @@ type AnalysisRow = {
   verdict: string;
   confidence: number | string;
   data_completeness: number | string;
+  completeness_breakdown: { key: string; label: string; present: boolean }[] | null;
   evidences: { detector: string; severity: "info" | "warn" | "high"; message: string }[];
   matches: {
     home_team: string;

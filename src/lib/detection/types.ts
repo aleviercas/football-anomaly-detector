@@ -96,6 +96,8 @@ export type Evidence = {
 
 export type Verdict = "clean" | "watch" | "suspicious" | "high_risk";
 
+export type CompletenessItem = { key: string; label: string; present: boolean };
+
 export type AnalysisResult = {
   overallScore: number; // 0..1
   verdict: Verdict;
@@ -103,4 +105,5 @@ export type AnalysisResult = {
   perDetector: DetectorResult[];
   evidences: Evidence[];
   dataCompleteness: number; // 0..1
+  completenessBreakdown: CompletenessItem[];
 };

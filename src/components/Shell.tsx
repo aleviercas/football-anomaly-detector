@@ -5,24 +5,6 @@ import type { User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
 
-function BallIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="9.25" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M12 7.2l3.6 2.6-1.4 4.3H9.8l-1.4-4.3L12 7.2z"
-        fill="currentColor"
-      />
-      <path
-        d="M12 2.75v4.45M8.4 9.8L4.3 8.5M9.8 14.1l-2.7 3.7M14.2 14.1l2.7 3.7M15.6 9.8l4.1-1.3"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 function useAuthUser() {
   const [user, setUser] = useState<User | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -50,10 +32,9 @@ export function Shell({ children, title, subtitle }: { children: ReactNode; titl
       <header className="border-b border-border/60 backdrop-blur sticky top-0 z-10 bg-background/80">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/10">
-              <BallIcon className="h-5 w-5 text-black" />
+            <div className="text-lg font-bold tracking-tight">
+              <span className="text-emerald-400">Smart</span><span className="text-foreground">Football</span>
             </div>
-            <div className="text-sm font-semibold tracking-tight">SmartFootball</div>
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link to="/" className="px-3 py-1.5 rounded-md hover:bg-accent/50 transition-colors">Inicio</Link>

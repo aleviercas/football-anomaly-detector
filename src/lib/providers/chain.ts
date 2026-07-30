@@ -20,6 +20,8 @@ export function availableProviders() {
 export async function chainSearch(query: {
   text?: string;
   league?: string;
+  competition?: string;
+  season?: string;
   from?: string;
   to?: string;
 }): Promise<ProviderSearchResult[]> {
@@ -35,7 +37,7 @@ export async function chainSearch(query: {
         seen.add(key);
         merged.push(r);
       }
-      if (merged.length >= 20) break;
+      if (merged.length >= 40) break;
     } catch (err) {
       console.warn(`[provider ${p.id}] search failed`, err);
     }

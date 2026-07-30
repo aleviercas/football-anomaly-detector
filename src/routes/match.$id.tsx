@@ -10,9 +10,9 @@ import { DETECTOR_LABELS } from "@/lib/detection/ensemble";
 export const Route = createFileRoute("/match/$id")({
   head: ({ params }) => ({
     meta: [
-      { title: `Análisis del partido — Football Intel — Detector de Anomalías` },
+      { title: `Análisis del partido — SmartFootball — Detector de Anomalías` },
       { name: "description", content: `Resultado de la detección de anomalías para el partido ${params.id}.` },
-      { property: "og:title", content: "Análisis de partido — Football Intel — Detector de Anomalías" },
+      { property: "og:title", content: "Análisis de partido — SmartFootball — Detector de Anomalías" },
       { property: "og:description", content: "Score de anomalía, detectores y evidencias." },
       { property: "og:type", content: "article" },
       { name: "twitter:card", content: "summary_large_image" },

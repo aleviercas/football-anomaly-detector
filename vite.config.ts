@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import { nitro } from "nitro/vite";
 
-// Standalone Vite config for Football Intel — no Lovable tooling involved.
+// Standalone Vite config for SmartFootball — no Lovable tooling involved.
 // Deploys as a normal TanStack Start (Nitro) app. The "vercel" preset makes
 // Nitro build server output for Vercel's Node runtime.
 export default defineConfig({

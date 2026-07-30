@@ -1,6 +1,6 @@
 {
-  "name": "Football Intel",
-  "short_name": "Football Intel",
+  "name": "SmartFootball",
+  "short_name": "SmartFootball",
   "description": "Detección de anomalías y posibles amaños en partidos de fútbol, con datos automáticos de múltiples fuentes.",
   "start_url": "/",
   "display": "standalone",

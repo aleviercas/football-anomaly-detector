@@ -10,9 +10,9 @@ import { listProviders, searchMatches, analyzeMatch } from "@/lib/matches.functi
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Football Intel — Detector de Anomalías en partidos" },
+      { title: "SmartFootball — Detector de Anomalías en partidos" },
       { name: "description", content: "Detecta anomalías estadísticas en partidos de fútbol pasados usando 9 algoritmos: Isolation Forest, LOF, análisis bayesiano, Ley de Benford, patrones de amaño, temporal y más." },
-      { property: "og:title", content: "Football Intel" },
+      { property: "og:title", content: "SmartFootball" },
       { property: "og:description", content: "Análisis multi-algoritmo de partidos de fútbol para detectar anomalías y posibles amaños." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

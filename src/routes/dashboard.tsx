@@ -8,9 +8,9 @@ import { listRecentAnalyses } from "@/lib/matches.functions";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Dashboard — Football Intel — Detector de Anomalías" },
+      { title: "Dashboard — SmartFootball — Detector de Anomalías" },
       { name: "description", content: "Análisis recientes de anomalías en partidos de fútbol con score, veredicto y confianza." },
-      { property: "og:title", content: "Dashboard de análisis — Football Intel — Detector de Anomalías" },
+      { property: "og:title", content: "Dashboard de análisis — SmartFootball — Detector de Anomalías" },
       { property: "og:description", content: "Últimos partidos analizados y su score de anomalía." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ModulesRouteImport } from './routes/modules'
 import { Route as ApiLatestAnalysisRouteImport } from './routes/api/latest-analysis'
 import { Route as MatchIdRouteImport } from './routes/match.$id'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModulesRoute = ModulesRouteImport.update({
+  id: '/modules',
+  path: '/modules',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLatestAnalysisRoute = ApiLatestAnalysisRouteImport.update({
@@ -38,12 +44,14 @@ const MatchIdRoute = MatchIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/modules': typeof ModulesRoute
   '/api/latest-analysis': typeof ApiLatestAnalysisRoute
   '/match/$id': typeof MatchIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/modules': typeof ModulesRoute
   '/api/latest-analysis': typeof ApiLatestAnalysisRoute
   '/match/$id': typeof MatchIdRoute
 }
@@ -51,20 +59,29 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
+  '/modules': typeof ModulesRoute
   '/api/latest-analysis': typeof ApiLatestAnalysisRoute
   '/match/$id': typeof MatchIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/api/latest-analysis' | '/match/$id'
+  fullPaths:
+    '/' | '/dashboard' | '/modules' | '/api/latest-analysis' | '/match/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/api/latest-analysis' | '/match/$id'
-  id: '__root__' | '/' | '/dashboard' | '/api/latest-analysis' | '/match/$id'
+  to: '/' | '/dashboard' | '/modules' | '/api/latest-analysis' | '/match/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/modules'
+    | '/api/latest-analysis'
+    | '/match/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
+  ModulesRoute: typeof ModulesRoute
   ApiLatestAnalysisRoute: typeof ApiLatestAnalysisRoute
   MatchIdRoute: typeof MatchIdRoute
 }
@@ -83,6 +100,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/modules': {
+      id: '/modules'
+      path: '/modules'
+      fullPath: '/modules'
+      preLoaderRoute: typeof ModulesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/latest-analysis': {
@@ -105,6 +129,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
+  ModulesRoute: ModulesRoute,
   ApiLatestAnalysisRoute: ApiLatestAnalysisRoute,
   MatchIdRoute: MatchIdRoute,
 }

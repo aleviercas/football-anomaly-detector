@@ -12,13 +12,14 @@ export function Shell({ children, title, subtitle }: { children: ReactNode; titl
               <Activity className="h-5 w-5 text-black" />
             </div>
             <div>
-              <div className="text-sm font-semibold tracking-tight">Football Intel</div>
+              <div className="text-sm font-semibold tracking-tight">SmartFootball</div>
               <div className="text-[11px] text-muted-foreground -mt-0.5">Módulo: Detector de Anomalías</div>
             </div>
           </Link>
           <nav className="flex items-center gap-1 text-sm">
             <Link to="/" className="px-3 py-1.5 rounded-md hover:bg-accent/50 transition-colors">Buscar</Link>
             <Link to="/dashboard" className="px-3 py-1.5 rounded-md hover:bg-accent/50 transition-colors">Dashboard</Link>
+            <Link to="/modules" className="px-3 py-1.5 rounded-md hover:bg-accent/50 transition-colors">Módulos</Link>
           </nav>
         </div>
       </header>
@@ -32,7 +33,7 @@ export function Shell({ children, title, subtitle }: { children: ReactNode; titl
       <footer className="border-t border-border/60 py-6 text-xs text-muted-foreground">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 flex flex-wrap gap-4 items-center justify-between">
           <span>Herramienta estadística exploratoria. No constituye prueba de amaño.</span>
-          <span className="flex items-center gap-1">Detección basada en 8 algoritmos independientes <ChevronRight className="h-3 w-3" /></span>
+          <span className="flex items-center gap-1">Detección basada en 9 algoritmos independientes <ChevronRight className="h-3 w-3" /></span>
         </div>
       </footer>
     </div>

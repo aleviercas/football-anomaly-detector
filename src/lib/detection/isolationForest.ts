@@ -70,7 +70,7 @@ export function isolationForestDetector(
   const anomaly = Math.pow(2, -avg / c); // 0..1, higher = more anomalous
   const reasons =
     anomaly > 0.6
-      ? [`Isolation Forest aisló el partido en ${avg.toFixed(2)} pasos promedio (score ${anomaly.toFixed(2)})`]
+      ? [`Isolation Forest aisló el partido en ${avg.toFixed(2)} pasos promedio (score ${anomaly.toFixed(2)}) — cuanto menos pasos hacen falta para aislarlo del resto, más raro es.`]
       : [];
-  return { detector: "isolation_forest", score: anomaly, reasons, weight: 1.1 };
+  return { detector: "isolation_forest", tier: "core", score: anomaly, reasons, weight: 1.1 };
 }

@@ -5,6 +5,7 @@ export function oddsMovementDetector(m: MatchData): DetectorResult {
   if (!o) {
     return {
       detector: "odds_movement",
+      tier: "domain",
       score: 0,
       reasons: ["Sin datos de cuotas disponibles"],
       weight: 0.6,
@@ -29,5 +30,5 @@ export function oddsMovementDetector(m: MatchData): DetectorResult {
   track("Under", o.under_open, o.under_close, 0.9);
 
   score = Math.min(1, score / 3);
-  return { detector: "odds_movement", score, reasons, weight: 1.2 };
+  return { detector: "odds_movement", tier: "domain", score, reasons, weight: 1.2 };
 }

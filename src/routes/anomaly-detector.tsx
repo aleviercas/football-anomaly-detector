@@ -13,7 +13,7 @@ export const Route = createFileRoute("/anomaly-detector")({
   head: () => ({
     meta: [
       { title: "Detector de Anomalías — SmartFootball" },
-      { name: "description", content: "Detecta anomalías estadísticas en partidos de fútbol pasados usando 9 algoritmos: Isolation Forest, LOF, análisis bayesiano, Ley de Benford, patrones de amaño, temporal y más." },
+      { name: "description", content: "Detecta anomalías estadísticas en partidos de fútbol pasados: 7 detectores (Z-score multivariado, Mahalanobis, PCA, Isolation Forest, One-Class SVM, DBSCAN, cambio de nivel) calibrados contra partidos históricos comparables, más señales de dominio (Benford, patrones, cuotas)." },
       { property: "og:title", content: "Detector de Anomalías — SmartFootball" },
       { property: "og:description", content: "Análisis multi-algoritmo de partidos de fútbol para detectar anomalías y posibles amaños." },
       { property: "og:type", content: "website" },
@@ -83,7 +83,7 @@ function AnomalyDetectorPage() {
       {/* Hero */}
       <section className="pt-16 pb-10">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 text-xs font-medium mb-6">
-          <Sparkles className="h-3.5 w-3.5" /> 9 algoritmos · cross-validation · datos oficiales
+          <Sparkles className="h-3.5 w-3.5" /> 7 detectores estadísticos · calibrado histórico · datos oficiales
         </div>
         <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight leading-[1.05]">
           ¿Ese partido fue <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">normal</span> o hay algo raro?
@@ -193,7 +193,9 @@ function AnomalyDetectorPage() {
             <div className="text-sm text-red-400 mb-3">Error: {searchM.data.error}</div>
           )}
           {searchM.data.results.length === 0 && !searchM.data.error && (
-            <div className="text-sm text-muted-foreground">Sin resultados. Prueba con otro equipo.</div>
+            <div className="text-sm text-muted-foreground">
+              Sin resultados. Probá: (1) escribir el nombre del equipo tal como aparece oficialmente, (2) si buscás un torneo viejo, elegí la competencia + año exactos, o (3) tené en cuenta que los planes gratuitos de las APIs no siempre cubren todas las temporadas/torneos — en ese caso hace falta un plan pago del proveedor para esa competencia.
+            </div>
           )}
           <div className="grid gap-2">
             {searchM.data.results.map((r) => {
@@ -237,8 +239,8 @@ function AnomalyDetectorPage() {
       {/* Method blurb */}
       <section className="mt-2 grid sm:grid-cols-3 gap-3">
         {[
-          { icon: TrendingUp, title: "Isolation Forest + LOF", desc: "Detecta outliers en el vector de features del partido." },
-          { icon: ShieldAlert, title: "Bayesian + Benford + Patrones", desc: "Combina probabilidades, integridad de datos y reglas conocidas de amaños." },
+          { icon: TrendingUp, title: "7 detectores estadísticos", desc: "Z-score multivariado, Mahalanobis, PCA, Isolation Forest, One-Class SVM, DBSCAN y cambio de nivel." },
+          { icon: ShieldAlert, title: "Calibrado histórico + señales de dominio", desc: "Se compara contra partidos comparables reales cuando hay suficientes, y se suma Bayesiano, Benford, patrones y cuotas." },
           { icon: Zap, title: "Cross-validation", desc: "Solo alertamos cuando varios detectores convergen." },
         ].map((f) => (
           <div key={f.title} className="p-4 rounded-lg border border-border bg-card/50">

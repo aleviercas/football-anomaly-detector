@@ -75,5 +75,5 @@ export function bayesianDetector(m: MatchData): DetectorResult {
   const reasons = signals.map((s) => `${s.name} (LR≈${s.lr})`);
   // Rescale so a posterior of 0.5 maps to ~0.8 (very meaningful in Bayes with tiny prior)
   const score = Math.min(1, posterior * 4);
-  return { detector: "bayesian", score, reasons, weight: 1.3 };
+  return { detector: "bayesian", tier: "domain", score, reasons, weight: 1.3 };
 }

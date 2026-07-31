@@ -2,8 +2,12 @@ import { extractFeatures, FEATURE_NAMES } from "./features";
 import type { DetectorResult, MatchData } from "./types";
 import type { FeatureVector } from "./features";
 
-// Z-score based outlier detector against a reference distribution.
-export function statisticalDetector(
+// 1) Z-score multivariado: combina el desvío estándar de cada variable a la
+// vez (no una por una) contra el baseline calibrado, vía la raíz de la suma
+// de cuadrados de los z-scores individuales (una versión simplificada —sin
+// covarianza— de la distancia de Mahalanobis, que sí modela correlación
+// entre variables en su propio detector).
+export function zscoreMultivariateDetector(
   match: MatchData,
   baseline: FeatureVector[],
 ): DetectorResult {
@@ -28,12 +32,11 @@ export function statisticalDetector(
     if (z > maxZ) maxZ = z;
     if (z >= 2.5) {
       reasons.push(
-        `${FEATURE_NAMES[i]} desviación ${z.toFixed(1)}σ (valor ${feats[i].toFixed(2)}, media ${means[i].toFixed(2)})`,
+        `${FEATURE_NAMES[i]} se desvía ${z.toFixed(1)}σ (valor ${feats[i].toFixed(2)}, media esperada ${means[i].toFixed(2)})`,
       );
     }
   }
   const rms = Math.sqrt(sumSq / feats.length);
-  // squash to 0..1 via a smooth logistic on the RMS z-score.
   const score = 1 / (1 + Math.exp(-(rms - 1.4) * 1.6));
-  return { detector: "statistical", score, reasons, weight: 1 };
+  return { detector: "zscore_multivariate", tier: "core", score, reasons, weight: 1 };
 }

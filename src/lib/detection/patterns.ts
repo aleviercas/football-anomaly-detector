@@ -73,5 +73,5 @@ export function patternsDetector(m: MatchData): DetectorResult {
   }
 
   const score = Math.min(1, hits / 6);
-  return { detector: "patterns", score, reasons, weight: 1.4 };
+  return { detector: "patterns", tier: "domain", score, reasons, weight: 1.4 };
 }

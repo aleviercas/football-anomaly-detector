@@ -3,6 +3,10 @@ import type { MatchDataProvider, ProviderSearchResult } from "./types";
 import { markCoolDown } from "./types";
 import { findCompetition } from "./competitions";
 
+function norm(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
 // Football-Data.org — free tier: ~10 requests/minute, only top competitions.
 // Docs: https://www.football-data.org/documentation/quickstart
 const BASE = "https://api.football-data.org/v4";
@@ -33,11 +37,11 @@ export function footballDataProvider(): MatchDataProvider {
     isAvailable: () => available,
     async searchMatches(query) {
       if (!available) return [];
-      const textLower = query.text?.toLowerCase();
+      const textLower = query.text ? norm(query.text) : undefined;
       const matchesTeamText = (m: FDMatch) =>
         !textLower ||
-        (m.homeTeam?.name?.toLowerCase() ?? "").includes(textLower) ||
-        (m.awayTeam?.name?.toLowerCase() ?? "").includes(textLower);
+        norm(m.homeTeam?.name ?? "").includes(textLower) ||
+        norm(m.awayTeam?.name ?? "").includes(textLower);
 
       // 1) Competition-scoped search (e.g. "World Cup" + season "2022") —
       // the reliable way to get a whole tournament's matches, since a
@@ -61,17 +65,21 @@ export function footballDataProvider(): MatchDataProvider {
         if (teamRes.status === 429) { markCoolDown("football-data"); return []; }
         if (teamRes.ok) {
           const tj = await teamRes.json() as { teams?: { id: number; name: string }[] };
-          const team = tj.teams?.[0];
-          if (team) {
+          const candidates = (tj.teams ?? []).slice(0, 3);
+          if (candidates.length) {
             const params = new URLSearchParams({ status: "FINISHED", limit: "50" });
             if (query.from) params.set("dateFrom", query.from.slice(0, 10));
             if (query.to) params.set("dateTo", query.to.slice(0, 10));
-            const mRes = await fetch(`${BASE}/teams/${team.id}/matches?${params}`, { headers: headers() });
-            if (mRes.status === 429) { markCoolDown("football-data"); return []; }
-            if (mRes.ok) {
-              const mj = await mRes.json() as { matches?: FDMatch[] };
-              return (mj.matches ?? []).slice(0, 40).map(mapMatch);
-            }
+            const results = await Promise.all(
+              candidates.map(async (team) => {
+                const mRes = await fetch(`${BASE}/teams/${team.id}/matches?${params}`, { headers: headers() });
+                if (!mRes.ok) return [];
+                const mj = await mRes.json() as { matches?: FDMatch[] };
+                return mj.matches ?? [];
+              }),
+            );
+            const merged = results.flat();
+            if (merged.length) return merged.slice(0, 40).map(mapMatch);
           }
         }
       }

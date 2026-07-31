@@ -5,7 +5,7 @@ import { ArrowLeft, AlertTriangle, ShieldCheck, CircleAlert } from "lucide-react
 
 import { Shell, verdictClass, verdictLabel } from "@/components/Shell";
 import { getAnalysis } from "@/lib/matches.functions";
-import { DETECTOR_LABELS, DETECTOR_DESCRIPTIONS, explainScoreFormula } from "@/lib/detection/ensemble";
+import { DETECTOR_LABELS, DETECTOR_DESCRIPTIONS, DETECTOR_TIER, explainScoreFormula } from "@/lib/detection/ensemble";
 
 export const Route = createFileRoute("/match/$id")({
   head: ({ params }) => ({
@@ -94,38 +94,16 @@ function MatchPage() {
 
       {/* Detectors */}
       <section className="mt-8">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Detectores</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-1">Motor estadístico principal (7)</h2>
+        <p className="text-xs text-muted-foreground mb-3">Anomalía = distancia entre lo esperado por contexto y lo ocurrido, calibrada contra partidos históricos comparables.</p>
         <div className="grid sm:grid-cols-2 gap-2">
-          {scores.map((d) => {
-            const score = Number(d.score);
-            const reasons = (d.reasons ?? []) as string[];
-            return (
-              <div key={d.id} className="p-3 rounded-lg border border-border bg-card">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-medium">{DETECTOR_LABELS[d.detector] ?? d.detector}</div>
-                  <div className="text-xs font-mono tabular-nums text-muted-foreground">{(score * 100).toFixed(0)}%</div>
-                </div>
-                <div className="mt-2 h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                  <div
-                    className={`h-full ${score >= 0.75 ? "bg-red-500" : score >= 0.55 ? "bg-orange-500" : score >= 0.35 ? "bg-yellow-500" : "bg-emerald-500"}`}
-                    style={{ width: `${Math.max(2, score * 100)}%` }}
-                  />
-                </div>
-                {reasons.length > 0 && (
-                  <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground list-disc list-inside">
-                    {reasons.map((r, i) => <li key={i}>{r}</li>)}
-                  </ul>
-                )}
-                {DETECTOR_DESCRIPTIONS[d.detector] && (
-                  <div className="mt-2 pt-2 border-t border-border/60 text-[11px] text-muted-foreground/80 space-y-1">
-                    <p>{DETECTOR_DESCRIPTIONS[d.detector].what}</p>
-                    <p><span className="text-muted-foreground/60">Variables: </span>{DETECTOR_DESCRIPTIONS[d.detector].variables}</p>
-                  </div>
-                )}
-                <div className="mt-1 text-[10px] text-muted-foreground/70">peso {Number(d.weight).toFixed(2)}</div>
-              </div>
-            );
-          })}
+          {scores.filter((d) => DETECTOR_TIER[d.detector] !== "domain").map((d) => <DetectorCard key={d.id} d={d} />)}
+        </div>
+
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mt-8 mb-1">Señales de dominio (4)</h2>
+        <p className="text-xs text-muted-foreground mb-3">Evidencia complementaria específica de fútbol/apuestas — no reemplazan al motor estadístico.</p>
+        <div className="grid sm:grid-cols-2 gap-2">
+          {scores.filter((d) => DETECTOR_TIER[d.detector] === "domain").map((d) => <DetectorCard key={d.id} d={d} />)}
         </div>
       </section>
 
@@ -232,3 +210,34 @@ type DetectorRow = {
   weight: number | string;
   reasons: unknown;
 };
+
+function DetectorCard({ d }: { d: DetectorRow }) {
+  const score = Number(d.score);
+  const reasons = (d.reasons ?? []) as string[];
+  return (
+    <div className="p-3 rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-medium">{DETECTOR_LABELS[d.detector] ?? d.detector}</div>
+        <div className="text-xs font-mono tabular-nums text-muted-foreground">{(score * 100).toFixed(0)}%</div>
+      </div>
+      <div className="mt-2 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+        <div
+          className={`h-full ${score >= 0.75 ? "bg-red-500" : score >= 0.55 ? "bg-orange-500" : score >= 0.35 ? "bg-yellow-500" : "bg-emerald-500"}`}
+          style={{ width: `${Math.max(2, score * 100)}%` }}
+        />
+      </div>
+      {reasons.length > 0 && (
+        <ul className="mt-2 space-y-0.5 text-xs text-muted-foreground list-disc list-inside">
+          {reasons.map((r, i) => <li key={i}>{r}</li>)}
+        </ul>
+      )}
+      {DETECTOR_DESCRIPTIONS[d.detector] && (
+        <div className="mt-2 pt-2 border-t border-border/60 text-[11px] text-muted-foreground/80 space-y-1">
+          <p>{DETECTOR_DESCRIPTIONS[d.detector].what}</p>
+          <p><span className="text-muted-foreground/60">Variables: </span>{DETECTOR_DESCRIPTIONS[d.detector].variables}</p>
+        </div>
+      )}
+      <div className="mt-1 text-[10px] text-muted-foreground/70">peso {Number(d.weight).toFixed(2)}</div>
+    </div>
+  );
+}

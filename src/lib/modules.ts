@@ -18,7 +18,7 @@ export const MODULES: ModuleInfo[] = [
     audience: "both",
     path: "/anomaly-detector",
     description:
-      "Detecta posibles amaños o irregularidades estadísticas en partidos ya jugados: 9 algoritmos (estadístico, Isolation Forest, LOF, Bayesiano, Ley de Benford, patrones, temporal, movimiento de cuotas y modelo histórico).",
+      "Detecta posibles amaños o irregularidades en partidos ya jugados: motor estadístico de 7 métodos (Z-score multivariado, Mahalanobis, PCA, Isolation Forest, One-Class SVM, DBSCAN, cambio de nivel) calibrado contra partidos históricos comparables, más señales de dominio (Bayesiano, Benford, patrones, cuotas). Analiza producción, posesión/pases, progresión, presión (PPDA), defensa y disciplina.",
   },
   {
     slug: "team-comparator",

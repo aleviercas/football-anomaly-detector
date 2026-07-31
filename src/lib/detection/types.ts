@@ -24,15 +24,50 @@ export type OddsSnapshot = {
 };
 
 export type TeamStats = {
+  // Producción (tiros / xG)
   shots?: number;
   shots_on_target?: number;
+  shots_inside_box?: number;
+  shots_outside_box?: number;
+  blocked_shots?: number;
+  xg?: number;
+  // Posesión y pases
   possession?: number; // %
+  passes?: number;
+  passes_accurate?: number;
+  pass_accuracy?: number; // %
+  // Progresión (proxy: cuánto del juego se traduce en llegadas al área)
+  progression_index?: number; // 0..1 — shots_inside_box / total_shots cuando hay datos de zona
+  // Presión / PPDA (passes allowed per defensive action — más bajo = más presión)
+  ppda?: number;
+  ppda_is_estimate?: boolean; // true si se calculó con proxy (sin datos de zona reales)
+  // Defensa
+  tackles?: number;
+  interceptions?: number;
+  clearances?: number;
+  saves?: number;
+  // Disciplina
   corners?: number;
   fouls?: number;
   yellow_cards?: number;
   red_cards?: number;
   offsides?: number;
-  xg?: number;
+};
+
+/**
+ * Estructura 360 (freeze-frames / posicionamiento en cada evento clave), al
+ * estilo de los feeds premium de tracking (Opta 360, StatsBomb 360, Second
+ * Spectrum). Ninguna de las fuentes gratuitas que usamos hoy (API-Football,
+ * football-data.org, TheSportsDB) provee esto — queda tipado y listo para
+ * cuando se conecte un proveedor de tracking data, pero por ahora siempre
+ * viene undefined y los detectores lo ignoran si no está.
+ */
+export type Structure360Frame = {
+  eventMinute: number;
+  team: "home" | "away";
+  ballLocation?: { x: number; y: number }; // 0..100 normalizado a la cancha
+  defendersBehindBall?: number;
+  playersInFrame?: { team: "home" | "away"; x: number; y: number }[];
 };
 
 export type MatchData = {
@@ -55,6 +90,7 @@ export type MatchData = {
   };
   events: MatchEvent[];
   odds?: OddsSnapshot;
+  structure360?: Structure360Frame[]; // reservado para proveedores de tracking data (ver arriba)
   referee?: {
     name?: string;
     avg_cards?: number;
@@ -70,19 +106,28 @@ export type MatchData = {
   };
 };
 
-export type DetectorId =
-  | "statistical"
+// Motor estadístico principal (7 detectores): la anomalía se define como la
+// distancia entre lo esperado por contexto (baseline calibrado contra
+// partidos históricos comparables) y lo ocurrido.
+export type CoreDetectorId =
+  | "zscore_multivariate"
+  | "mahalanobis"
+  | "pca"
   | "isolation_forest"
-  | "lof"
-  | "bayesian"
-  | "patterns"
-  | "temporal"
-  | "odds_movement"
-  | "ml_historical"
-  | "benford";
+  | "one_class_svm"
+  | "dbscan"
+  | "change_point";
+
+// Señales de dominio adicionales (evidencia complementaria, no reemplazan
+// al motor estadístico): patrones documentados de amaño, movimiento de
+// cuotas, integridad de datos (Benford) y un heurístico bayesiano.
+export type DomainDetectorId = "patterns" | "odds_movement" | "benford" | "bayesian";
+
+export type DetectorId = CoreDetectorId | DomainDetectorId;
 
 export type DetectorResult = {
   detector: DetectorId;
+  tier: "core" | "domain";
   score: number; // 0..1 (1 = highly anomalous)
   reasons: string[];
   weight: number;

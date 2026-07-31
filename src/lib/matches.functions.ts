@@ -5,6 +5,7 @@ import { chainDetail, chainSearch, availableProviders } from "./providers/chain"
 import { runAnalysis } from "./detection/ensemble";
 import type { MatchData } from "./detection/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { rowToMatchData } from "./matchRowMapper";
 
 const SearchInput = z.object({
   text: z.string().optional(),
@@ -114,7 +115,7 @@ export const analyzeMatch = createServerFn({ method: "POST" })
         match = rowToMatchData(matchRow);
       }
 
-      const analysis = runAnalysis(match);
+      const analysis = await runAnalysis(match);
 
       // Persist analysis (best-effort — never blocks returning the result)
       if (dbAvailable && match.id) {
@@ -164,28 +165,6 @@ export const analyzeMatch = createServerFn({ method: "POST" })
     }
   });
 
-function rowToMatchData(matchRow: Record<string, unknown>): MatchData {
-  const raw = (matchRow.raw ?? {}) as { events?: unknown[]; odds?: unknown; referee?: unknown };
-  return {
-    id: matchRow.id as string,
-    provider: matchRow.provider as string,
-    externalId: matchRow.external_id as string,
-    league: (matchRow.league as string | null) ?? undefined,
-    season: (matchRow.season as string | null) ?? undefined,
-    matchDate: matchRow.match_date as string,
-    homeTeam: matchRow.home_team as string,
-    awayTeam: matchRow.away_team as string,
-    homeScore: (matchRow.home_score as number) ?? 0,
-    awayScore: (matchRow.away_score as number) ?? 0,
-    htHomeScore: (matchRow.ht_home_score as number | null) ?? undefined,
-    htAwayScore: (matchRow.ht_away_score as number | null) ?? undefined,
-    status: (matchRow.status as string | null) ?? undefined,
-    stats: (matchRow.stats ?? {}) as MatchData["stats"],
-    events: (raw.events as MatchData["events"]) ?? [],
-    odds: (raw.odds as MatchData["odds"]) ?? undefined,
-    referee: (raw.referee as MatchData["referee"]) ?? undefined,
-  };
-}
 
 export const listRecentAnalyses = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

@@ -1,13 +1,23 @@
 import type { AnalysisResult, CompletenessItem, DetectorResult, Evidence, MatchData, Verdict } from "./types";
-import { generateBaseline } from "./baseline";
-import { statisticalDetector } from "./statistical";
+import { getCalibratedBaseline, generateBaseline, type BaselineResult } from "./baseline";
+import { ppdaIsEstimate } from "./features";
+
+// Motor estadístico principal (7 detectores): la anomalía se define como la
+// distancia entre lo esperado por contexto y lo ocurrido, calibrada contra
+// partidos históricos comparables (misma liga, cuando hay suficientes en
+// caché — ver baseline.ts).
+import { zscoreMultivariateDetector } from "./zscoreMultivariate";
+import { mahalanobisDetector } from "./mahalanobis";
+import { pcaDetector } from "./pca";
 import { isolationForestDetector } from "./isolationForest";
-import { lofDetector } from "./lof";
+import { oneClassSvmDetector } from "./oneClassSvm";
+import { dbscanDetector } from "./dbscan";
+import { changePointDetector } from "./changePoint";
+
+// Señales de dominio adicionales (evidencia complementaria).
 import { bayesianDetector } from "./bayesian";
 import { patternsDetector } from "./patterns";
-import { temporalDetector } from "./temporal";
 import { oddsMovementDetector } from "./oddsMovement";
-import { mlHistoricalDetector } from "./mlHistorical";
 import { benfordDetector } from "./benford";
 
 export type EnsembleOptions = {
@@ -15,20 +25,29 @@ export type EnsembleOptions = {
   historicalBaseline?: number[][];
 };
 
-export function runAnalysis(match: MatchData, opts: EnsembleOptions = {}): AnalysisResult {
-  const baseline = opts.historicalBaseline?.length
-    ? opts.historicalBaseline
-    : generateBaseline(opts.baselineSize ?? 300);
+export async function runAnalysis(match: MatchData, opts: EnsembleOptions = {}): Promise<AnalysisResult> {
+  const baselineResult: BaselineResult = opts.historicalBaseline?.length
+    ? { vectors: opts.historicalBaseline, source: "synthetic", sampleSize: opts.historicalBaseline.length }
+    : await getCalibratedBaseline(match).catch(() => ({
+        vectors: generateBaseline(opts.baselineSize ?? 300),
+        source: "synthetic" as const,
+        sampleSize: 300,
+      }));
+  const baseline = baselineResult.vectors;
 
   const detectors: DetectorResult[] = [
-    statisticalDetector(match, baseline),
+    // 1-7: motor estadístico principal
+    zscoreMultivariateDetector(match, baseline),
+    mahalanobisDetector(match, baseline),
+    pcaDetector(match, baseline),
     isolationForestDetector(match, baseline),
-    lofDetector(match, baseline),
+    oneClassSvmDetector(match, baseline),
+    dbscanDetector(match, baseline),
+    changePointDetector(match),
+    // Señales de dominio (evidencia complementaria)
     bayesianDetector(match),
     patternsDetector(match),
-    temporalDetector(match),
     oddsMovementDetector(match),
-    mlHistoricalDetector(match),
     benfordDetector(match),
   ];
 
@@ -39,18 +58,29 @@ export function runAnalysis(match: MatchData, opts: EnsembleOptions = {}): Analy
   // Cross-validation: how many detectors fire above threshold
   const firing = detectors.filter((d) => d.score >= 0.55).length;
   const strongFiring = detectors.filter((d) => d.score >= 0.75).length;
+  const coreFiring = detectors.filter((d) => d.tier === "core" && d.score >= 0.55).length;
 
-  // Boost when multiple independent detectors agree
+  // Boost when multiple independent detectors agree — el motor estadístico
+  // (7 detectores) coincidiendo entre sí pesa más que señales de dominio
+  // aisladas, porque son estimaciones más independientes entre sí.
   let overall = weighted;
-  if (firing >= 3) overall = Math.min(1, overall * 1.15);
+  if (coreFiring >= 3) overall = Math.min(1, overall * 1.2);
+  else if (firing >= 3) overall = Math.min(1, overall * 1.15);
   if (strongFiring >= 2) overall = Math.min(1, overall * 1.2);
   // Dampen when only 1 detector fires (single-signal is weak evidence)
   if (firing <= 1) overall = overall * 0.7;
 
-  const { score: dataCompleteness, breakdown: completenessBreakdown } = computeCompleteness(match);
+  const { score: dataCompleteness, breakdown: completenessBreakdownBase } = computeCompleteness(match);
+  const completenessBreakdown: CompletenessItem[] = [
+    ...completenessBreakdownBase,
+    { key: "passes", label: "Pases y precisión de pase", present: has(match.stats.home?.passes) },
+    { key: "ppda", label: "Presión (PPDA) medida directamente (no estimada)", present: !ppdaIsEstimate(match) },
+    { key: "structure360", label: "Datos de tracking / estructura 360", present: !!match.structure360?.length },
+  ];
   // Confidence: bigger with more data + more agreement
   const agreement = 1 - variance(detectors.map((d) => d.score));
-  const confidence = clamp01(dataCompleteness * 0.6 + agreement * 0.4);
+  const historicalBonus = baselineResult.source === "historical" ? 0.05 : 0;
+  const confidence = clamp01(dataCompleteness * 0.55 + agreement * 0.4 + historicalBonus);
 
   const verdict: Verdict =
     overall >= 0.75 ? "high_risk" : overall >= 0.55 ? "suspicious" : overall >= 0.35 ? "watch" : "clean";
@@ -62,6 +92,13 @@ export function runAnalysis(match: MatchData, opts: EnsembleOptions = {}): Analy
       severity: d.score >= 0.75 ? "high" : d.score >= 0.5 ? "warn" : "info",
     })),
   );
+  if (baselineResult.source === "historical") {
+    evidences.unshift({
+      detector: "zscore_multivariate",
+      severity: "info",
+      message: `El baseline se calibró contra ${baselineResult.sampleSize} partidos históricos reales de ${match.league ?? "esta competencia"}, no solo con supuestos genéricos.`,
+    });
+  }
 
   return {
     overallScore: overall,
@@ -78,10 +115,10 @@ function computeCompleteness(m: MatchData): { score: number; breakdown: Complete
   const items: CompletenessItem[] = [
     { key: "score", label: "Resultado final", present: has(m.homeScore) && has(m.awayScore) },
     { key: "ht_score", label: "Resultado al entretiempo", present: has(m.htHomeScore) && has(m.htAwayScore) },
-    { key: "shots", label: "Remates (ambos equipos)", present: has(m.stats.home?.shots) && has(m.stats.away?.shots) },
+    { key: "shots", label: "Remates (producción)", present: has(m.stats.home?.shots) && has(m.stats.away?.shots) },
     { key: "shots_on_target", label: "Remates al arco", present: has(m.stats.home?.shots_on_target) && has(m.stats.away?.shots_on_target) },
-    { key: "possession", label: "Posesión", present: has(m.stats.home?.possession) },
     { key: "xg", label: "Goles esperados (xG)", present: has(m.stats.home?.xg) },
+    { key: "possession", label: "Posesión", present: has(m.stats.home?.possession) },
     { key: "events", label: "Eventos del partido (goles, tarjetas, cambios)", present: m.events.length > 0 },
     { key: "odds_pre", label: "Cuotas antes del partido", present: has(m.odds?.home_open) },
     { key: "odds_close", label: "Cuotas al cierre / en vivo", present: has(m.odds?.home_close) },
@@ -104,64 +141,89 @@ function variance(arr: number[]) {
 function clamp01(v: number) { return Math.max(0, Math.min(1, v)); }
 
 export const DETECTOR_LABELS: Record<string, string> = {
-  statistical: "Estadístico (Z-score)",
+  zscore_multivariate: "Z-score multivariado",
+  mahalanobis: "Distancia de Mahalanobis",
+  pca: "PCA (Análisis de Componentes Principales)",
   isolation_forest: "Isolation Forest",
-  lof: "Local Outlier Factor",
+  one_class_svm: "One-Class SVM",
+  dbscan: "DBSCAN",
+  change_point: "Detector secuencial de cambio de nivel",
   bayesian: "Análisis Bayesiano",
   patterns: "Patrones conocidos",
-  temporal: "Análisis temporal",
   odds_movement: "Movimiento de cuotas",
-  ml_historical: "Modelo histórico (ML)",
   benford: "Ley de Benford (integridad de datos)",
 };
 
+export const DETECTOR_TIER: Record<string, "core" | "domain"> = {
+  zscore_multivariate: "core",
+  mahalanobis: "core",
+  pca: "core",
+  isolation_forest: "core",
+  one_class_svm: "core",
+  dbscan: "core",
+  change_point: "core",
+  bayesian: "domain",
+  patterns: "domain",
+  odds_movement: "domain",
+  benford: "domain",
+};
+
 export const DETECTOR_DESCRIPTIONS: Record<string, { what: string; variables: string }> = {
-  statistical: {
-    what: "Calcula cuántos desvíos estándar (Z-score) se aleja cada estadística del partido respecto al promedio histórico de partidos similares. Un valor muy alto o muy bajo en varias variables a la vez sube el score.",
-    variables: "Remates, remates al arco, posesión, córners, faltas, tarjetas, goles totales.",
+  zscore_multivariate: {
+    what: "Calcula el desvío estándar (Z-score) de cada variable del partido contra el baseline calibrado, y combina todos los desvíos a la vez (raíz de la suma de cuadrados). Varias variables desviadas al mismo tiempo suben el score más que una sola.",
+    variables: "Las 22 variables del vector: producción (xG, tiros), posesión/pases, progresión, PPDA, disciplina, defensa y contexto (goles, cuotas).",
+  },
+  mahalanobis: {
+    what: "Como el Z-score, pero tiene en cuenta la correlación entre variables (ej. tiros y xG suelen moverse juntos). Puede detectar una combinación conjunta rara aunque cada variable por separado parezca normal.",
+    variables: "Mismo vector de 22 variables, ponderado por la matriz de covarianza del baseline.",
+  },
+  pca: {
+    what: "Ajusta las direcciones donde varían los partidos normales (componentes principales) y mide cuánto de este partido queda fuera de esas direcciones dominantes (error de reconstrucción). Partidos raros varían de formas que los partidos normales casi no usan.",
+    variables: "Mismo vector de 22 variables, proyectado sobre sus 6 componentes principales.",
   },
   isolation_forest: {
-    what: "Algoritmo de Machine Learning que aísla el partido en un 'árbol' de decisiones aleatorias sobre todas sus variables a la vez. Partidos raros se aíslan con menos particiones que uno normal — eso sube el score.",
-    variables: "Vector completo de estadísticas del partido (remates, posesión, tarjetas, goles, xG, córners).",
+    what: "Algoritmo de Machine Learning que aísla el partido en árboles de decisión aleatorios sobre todas sus variables a la vez. Partidos raros se aíslan con menos particiones que uno normal.",
+    variables: "Vector completo de 22 variables (producción, posesión/pases, progresión, presión, disciplina, defensa, contexto).",
   },
-  lof: {
-    what: "Local Outlier Factor: compara la densidad de partidos 'vecinos' (estadísticamente parecidos) contra la densidad general. Si el partido está en una zona rara del espacio estadístico, sube el score.",
-    variables: "Mismo vector de estadísticas que Isolation Forest, pero mirando densidad local en vez de aislamiento global.",
+  one_class_svm: {
+    what: "Aproximación de One-Class SVM vía similitud de kernel RBF: mide qué tan parecido es este partido, en conjunto, a la 'nube' de partidos normales. Baja similitud = zona novedosa/anómala del espacio de datos.",
+    variables: "Mismo vector de 22 variables, normalizado.",
+  },
+  dbscan: {
+    what: "Clustering por densidad: si el partido cae como 'punto de ruido' (sin suficientes partidos comparables cerca), es una señal de que ocurre en una región poco poblada del espacio estadístico.",
+    variables: "Mismo vector de 22 variables, comparado por densidad contra la muestra del baseline.",
+  },
+  change_point: {
+    what: "Detector secuencial de cambio de nivel (CUSUM) sobre la serie temporal de eventos decisivos del partido: identifica si en algún tramo la intensidad de goles/tarjetas cambia de régimen de forma abrupta y sostenida, más allá de lo esperable por variación normal.",
+    variables: "Minuto exacto de cada gol, penal, autogol y tarjeta roja.",
   },
   bayesian: {
-    what: "Estima la probabilidad de que el resultado sea 'orgánico' dado el marcador, el momento de los goles y la diferencia de nivel entre los equipos, usando probabilidad condicional (teorema de Bayes).",
-    variables: "Marcador final, minuto de cada gol, favoritismo pre-partido (si hay cuotas).",
+    what: "Estima la probabilidad de que el resultado sea 'orgánico' dado el marcador, el momento de los goles y el favoritismo pre-partido, usando razones de verosimilitud (teorema de Bayes) calibradas con patrones públicos documentados.",
+    variables: "Marcador final, minuto de cada gol/penal/tarjeta, cuotas pre-partido si están disponibles.",
   },
   patterns: {
-    what: "Reglas explícitas basadas en patrones documentados de amaños reales: remontadas inusuales en pocos minutos, penales/tarjetas en momentos sospechosos, resultados exactos que benefician mercados de apuestas comunes (ej. 2-1, over/under).",
+    what: "Reglas explícitas basadas en patrones documentados de amaños reales: remontadas inusuales en pocos minutos, penales/tarjetas en momentos sospechosos, resultados que benefician mercados de apuestas comunes.",
     variables: "Secuencia de eventos (goles, tarjetas, penales) con su minuto exacto.",
   },
-  temporal: {
-    what: "Analiza la distribución de los eventos a lo largo de los 90 minutos: si todos los goles/tarjetas relevantes se concentran de forma anormal en un tramo muy corto del partido.",
-    variables: "Minuto de cada evento (goles, tarjetas, cambios).",
-  },
   odds_movement: {
-    what: "Compara las cuotas de apuestas antes del partido contra las de cierre/en vivo. Movimientos bruscos sin razón deportiva aparente (lesiones, clima) son la señal más citada en casos reales de amaño.",
+    what: "Compara las cuotas de apuestas antes del partido contra las de cierre/en vivo. Movimientos bruscos sin razón deportiva aparente son la señal más citada en casos reales de amaño.",
     variables: "Cuotas 1X2 y over/under, apertura vs. cierre.",
   },
-  ml_historical: {
-    what: "Modelo entrenado con partidos históricos etiquetados (limpios vs. sospechosos) que calcula qué tan parecido es el vector de este partido a los casos sospechosos conocidos.",
-    variables: "Combinación ponderada de todas las variables disponibles del partido.",
-  },
   benford: {
-    what: "Ley de Benford: en datos numéricos genuinos, el primer dígito de cada número sigue una distribución logarítmica predecible. Una desviación fuerte (chi-cuadrado alto) sugiere que algunos datos pudieron ser fabricados o alterados manualmente.",
+    what: "Ley de Benford: en datos numéricos genuinos, el primer dígito de cada número sigue una distribución logarítmica predecible. Una desviación fuerte sugiere que algunos datos pudieron ser fabricados o alterados manualmente.",
     variables: "Primer dígito de todos los números del partido: goles, remates, córners, faltas, minutos de eventos, cuotas.",
   },
 };
 
 export function explainScoreFormula() {
   return [
-    "Cada uno de los 9 detectores da un puntaje de 0 a 1 y tiene un peso (algunos pesan más que otros según qué tan confiable es su señal).",
-    "El score general arranca como el promedio ponderado de los 9 detectores.",
-    "Si 3 o más detectores superan 0.55 a la vez, el score sube un 15% (varias señales independientes coincidiendo es más confiable que una sola).",
-    "Si 2 o más detectores superan 0.75 (señal fuerte), el score sube otro 20% adicional.",
-    "Si solo 1 detector (o ninguno) supera 0.55, el score baja un 30% — una sola señal aislada no alcanza para sospechar.",
-    "La confianza del análisis combina qué tan completos son los datos del partido (¿hay cuotas? ¿hay xG? ¿hay eventos minuto a minuto?) con qué tan de acuerdo están los detectores entre sí.",
+    "El motor estadístico principal corre 7 métodos independientes (Z-score multivariado, Mahalanobis, PCA, Isolation Forest, One-Class SVM, DBSCAN y un detector secuencial de cambio de nivel), todos midiendo lo mismo desde ángulos distintos: qué tan lejos está este partido de lo esperado, calibrado contra partidos históricos comparables de la misma liga cuando hay suficientes en caché (si no, se usa un baseline sintético razonable).",
+    "Se suman 4 señales de dominio adicionales (Bayesiano, patrones conocidos de amaño, movimiento de cuotas, Ley de Benford) como evidencia complementaria, no como reemplazo del motor estadístico.",
+    "El score general arranca como el promedio ponderado de los 11 detectores (cada uno pesa distinto según qué tan confiable es su señal).",
+    "Si 3 o más detectores del motor estadístico principal coinciden a la vez, el score sube un 20% — varios métodos independientes de detección de anomalías coincidiendo es la evidencia más fuerte.",
+    "Si 2 o más detectores (de cualquier capa) superan una señal fuerte (0.75), el score sube otro 20% adicional.",
+    "Si solo 1 detector (o ninguno) dispara, el score baja un 30% — una sola señal aislada no alcanza para sospechar.",
+    "La confianza combina completitud de datos (¿hay xG? ¿posesión? ¿pases? ¿cuotas?), acuerdo entre detectores, y un plus si el baseline se calibró contra partidos históricos reales en vez del sintético.",
   ];
 }
 

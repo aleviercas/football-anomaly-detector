@@ -7,17 +7,49 @@ módulos; cada módulo activo vive en su propia ruta.
 
 ## Módulo activo: Detector de Anomalías (`/anomaly-detector`)
 
-Detecta posibles amaños/anomalías en partidos **ya jugados**, combinando:
+Detecta posibles amaños/anomalías en partidos **ya jugados**. Define
+anomalía como **la distancia entre lo esperado por contexto y lo
+ocurrido**, calibrada contra partidos históricos comparables (misma
+liga, cuando hay suficientes cacheados en Supabase — si no, cae a un
+baseline sintético razonable).
 
-- Motor multi-fuente automático (`src/lib/providers/`): API-Football,
-  football-data.org y TheSportsDB, con fallback entre ellas.
-- Ensemble de 9 algoritmos (`src/lib/detection/`): estadístico (Z-score/IQR),
-  Isolation Forest, LOF, Bayesiano, Ley de Benford, patrones de amaño
-  conocidos, análisis temporal, movimiento de cuotas y modelo histórico.
+**Qué mide** (`src/lib/detection/features.ts`): producción (xG, tiros),
+posesión y pases, progresión, presión (PPDA — estimado cuando no hay datos
+de zona reales), defensa y disciplina. Hay un campo reservado
+(`structure360`) para cuando se conecte un proveedor de tracking data
+(estilo Opta 360 / StatsBomb 360); ninguna de las APIs gratuitas actuales
+lo provee todavía.
+
+**Motor estadístico principal (7 detectores)** —
+`src/lib/detection/{zscoreMultivariate,mahalanobis,pca,isolationForest,oneClassSvm,dbscan,changePoint}.ts`:
+Z-score multivariado, Distancia de Mahalanobis, PCA, Isolation Forest,
+One-Class SVM (aproximado vía kernel RBF), DBSCAN y un detector secuencial
+de cambio de nivel (CUSUM) sobre la línea de tiempo del partido.
+
+**Señales de dominio (4, evidencia complementaria)** —
+`src/lib/detection/{bayesian,patterns,oddsMovement,benford}.ts`: análisis
+bayesiano, patrones documentados de amaño, movimiento de cuotas y Ley de
+Benford (integridad de los datos).
+
+Motor multi-fuente automático (`src/lib/providers/`): API-Football,
+football-data.org y TheSportsDB, con fallback entre ellas, más un listado
+de competencias (`competitions.ts`) para buscar por torneo + año (la forma
+confiable de encontrar partidos viejos como un Mundial — ver más abajo).
 
 Requiere estar logueado (los análisis quedan asociados a tu cuenta, para
 poder volver a consultarlos en la misma página — no hay un dashboard
 separado).
+
+## Cómo buscar partidos viejos (Mundial, Copas, etc.)
+
+Buscar solo por nombre de equipo trae sus partidos **más recientes** —no
+necesariamente los de hace varios años. Para un torneo viejo, elegí la
+**competencia + el año exacto** en el buscador (ej. "Copa del Mundo" +
+"2022"): así se pide el torneo entero al endpoint correcto de cada API en
+vez de adivinar por nombre de equipo. Si aun así no aparece, puede ser que
+el plan gratuito del proveedor no cubra esa temporada/competencia — en ese
+caso hace falta un plan pago de API-Football o football-data.org para esa
+cobertura específica.
 
 ## Cuentas de usuario
 

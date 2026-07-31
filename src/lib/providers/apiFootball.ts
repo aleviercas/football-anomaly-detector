@@ -45,16 +45,20 @@ export function apiFootballProvider(): MatchDataProvider {
         if (teamRes.status === 429) { markCoolDown("api-football"); return []; }
         if (!teamRes.ok) return [];
         const tj = await teamRes.json() as { response?: { team?: { id: number } }[] };
-        const teamId = tj.response?.[0]?.team?.id;
-        if (!teamId) return [];
-        const fxUrl = query.season
-          ? `${BASE}/fixtures?team=${teamId}&season=${query.season}`
-          : `${BASE}/fixtures?team=${teamId}&last=50`;
-        const fx = await fetch(fxUrl, { headers: headers() });
-        if (fx.status === 429) { markCoolDown("api-football"); return []; }
-        if (!fx.ok) return [];
-        const fj = await fx.json() as { response?: AFFixture[] };
-        return (fj.response ?? []).slice(0, 50).map(mapFixture);
+        const teamIds = (tj.response ?? []).map((r) => r.team?.id).filter((id): id is number => !!id).slice(0, 3);
+        if (!teamIds.length) return [];
+        const results = await Promise.all(
+          teamIds.map(async (teamId) => {
+            const fxUrl = query.season
+              ? `${BASE}/fixtures?team=${teamId}&season=${query.season}`
+              : `${BASE}/fixtures?team=${teamId}&last=50`;
+            const fx = await fetch(fxUrl, { headers: headers() });
+            if (!fx.ok) return [];
+            const fj = await fx.json() as { response?: AFFixture[] };
+            return fj.response ?? [];
+          }),
+        );
+        return results.flat().slice(0, 50).map(mapFixture);
       }
 
       // 3) Fallback: browse by date window (only when neither team nor
@@ -162,6 +166,9 @@ function applyStats(match: Partial<MatchData>, stats: AFStat[], fx: AFFixture) {
       if (val == null || Number.isNaN(val)) continue;
       if (key.includes("shots on goal")) bucket.shots_on_target = val;
       else if (key === "total shots" || key === "shots total") bucket.shots = val;
+      else if (key.includes("shots insidebox")) bucket.shots_inside_box = val;
+      else if (key.includes("shots outsidebox")) bucket.shots_outside_box = val;
+      else if (key.includes("blocked")) bucket.blocked_shots = val;
       else if (key.includes("possession")) bucket.possession = val;
       else if (key.includes("corner")) bucket.corners = val;
       else if (key.includes("fouls")) bucket.fouls = val;
@@ -169,6 +176,13 @@ function applyStats(match: Partial<MatchData>, stats: AFStat[], fx: AFFixture) {
       else if (key.includes("red")) bucket.red_cards = val;
       else if (key.includes("offside")) bucket.offsides = val;
       else if (key.includes("expected_goals") || key === "expected goals") bucket.xg = val;
+      else if (key === "total passes" || key === "passes total") bucket.passes = val;
+      else if (key.includes("passes accurate")) bucket.passes_accurate = val;
+      else if (key.includes("passes %") || key.includes("passes percentage")) bucket.pass_accuracy = val;
+      else if (key.includes("goalkeeper saves")) bucket.saves = val;
+    }
+    if (bucket.shots_inside_box != null && bucket.shots != null) {
+      bucket.progression_index = bucket.shots > 0 ? bucket.shots_inside_box / bucket.shots : undefined;
     }
     match.stats = { ...(match.stats ?? {}), [side]: bucket };
   }

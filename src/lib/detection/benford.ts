@@ -81,6 +81,7 @@ export function benfordDetector(match: MatchData): DetectorResult {
 
   return {
     detector: "benford",
+    tier: "domain",
     score,
     reasons,
     // Lower weight than direct football signals: this is corroborating
